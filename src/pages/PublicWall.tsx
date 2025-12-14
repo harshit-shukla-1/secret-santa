@@ -1,19 +1,30 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Message, getAllMessages } from '@/services/mockService';
-import { Music, ArrowLeft, Gift } from 'lucide-react';
+import { Message, getAllMessages, getPersistedUser, deleteMessage, User } from '@/services/mockService';
+import { Music, ArrowLeft, Gift, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 
 const PublicWall = () => {
   const [messages, setMessages] = useState<Message[]>([]);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
+    setCurrentUser(getPersistedUser());
     setMessages(getAllMessages());
     const interval = setInterval(() => setMessages(getAllMessages()), 5000);
     return () => clearInterval(interval);
   }, []);
+
+  const handleDelete = (id: string) => {
+    if (confirm("Are you sure you want to remove this message from the wall?")) {
+      deleteMessage(id);
+      setMessages(getAllMessages());
+      toast.success("Message removed from wall");
+    }
+  };
 
   const renderMessageContent = (msg: Message) => {
     switch (msg.type) {
@@ -70,7 +81,14 @@ const PublicWall = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              {messages.map((msg) => (
-               <Card key={msg.id} className="hover:shadow-lg transition-shadow border-primary/10 overflow-hidden">
+               <Card key={msg.id} className="hover:shadow-lg transition-shadow border-primary/10 overflow-hidden relative group">
+                 {currentUser?.role === 'admin' && (
+                    <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => handleDelete(msg.id)}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                 )}
                  <CardHeader className="bg-gradient-to-r from-green-50 to-emerald-50 pb-2 border-b border-green-100">
                     <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">

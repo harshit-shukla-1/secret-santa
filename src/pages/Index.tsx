@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Login from '@/components/Login';
 import SendMessage from '@/components/SendMessage';
 import Inbox from '@/components/Inbox';
@@ -8,20 +8,34 @@ import UpdatePasswordDialog from '@/components/UpdatePasswordDialog';
 import { Button } from '@/components/ui/button';
 import { LogOut, Globe } from 'lucide-react';
 import { Toaster } from 'sonner';
-import { User } from '@/services/mockService';
+import { User, getPersistedUser, persistLogin, logoutUser } from '@/services/mockService';
 import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const navigate = useNavigate();
 
+  useEffect(() => {
+    const savedUser = getPersistedUser();
+    if (savedUser) {
+      setCurrentUser(savedUser);
+    }
+  }, []);
+
+  const handleLogin = (user: User) => {
+    persistLogin(user);
+    setCurrentUser(user);
+  };
+
   const handleLogout = () => {
+    logoutUser();
     setCurrentUser(null);
   };
 
   const handleAvatarUpdate = (newAvatar: string) => {
     if (currentUser) {
       setCurrentUser({ ...currentUser, avatar: newAvatar });
+      // Persistence is handled inside updateUserAvatar service for session
     }
   };
 
@@ -36,7 +50,7 @@ const Index = () => {
         {snowflakes}
         <div className="absolute inset-0 bg-[url('https://images.unsplash.com/photo-1544979590-2c35e3940177?q=80&w=2940&auto=format&fit=crop')] bg-cover bg-center opacity-20" />
         <div className="relative z-10 pt-20">
-          <Login onLogin={setCurrentUser} />
+          <Login onLogin={handleLogin} />
         </div>
         <Toaster />
       </div>

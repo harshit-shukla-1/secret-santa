@@ -21,6 +21,7 @@ export interface Message {
 
 const USERS_KEY = 'secret-santa-users-v2';
 const MESSAGES_KEY = 'secret-santa-messages-v2';
+const CURRENT_USER_KEY = 'secret-santa-current-user';
 
 const init = () => {
   if (typeof window === 'undefined') return;
@@ -54,7 +55,7 @@ export const createUser = (username: string, password?: string, role: UserRole =
     username, 
     password, 
     role,
-    avatar: role === 'admin' ? '🎅' : '☃️' // Default avatars
+    avatar: role === 'admin' ? '🎅' : '☃️'
   };
   
   users.push(newUser);
@@ -84,6 +85,12 @@ export const updateUserAvatar = (username: string, avatar: string) => {
   if (index !== -1) {
     users[index].avatar = avatar;
     localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    
+    // Also update session if it's the current user
+    const currentUser = getPersistedUser();
+    if (currentUser && currentUser.username === username) {
+      persistLogin({ ...currentUser, avatar });
+    }
   }
 };
 
@@ -92,6 +99,21 @@ export const authenticate = (username: string, password?: string): User | null =
   if (!user) return null;
   if (user.password === password) return user;
   return null;
+};
+
+// Session Management
+export const persistLogin = (user: User) => {
+  localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+};
+
+export const getPersistedUser = (): User | null => {
+  if (typeof window === 'undefined') return null;
+  const data = localStorage.getItem(CURRENT_USER_KEY);
+  return data ? JSON.parse(data) : null;
+};
+
+export const logoutUser = () => {
+  localStorage.removeItem(CURRENT_USER_KEY);
 };
 
 export const getMessagesForUser = (username: string): Message[] => {
@@ -149,6 +171,7 @@ export const deleteMessage = (id: string) => {
 export const clearAllData = () => {
   localStorage.removeItem(USERS_KEY);
   localStorage.removeItem(MESSAGES_KEY);
+  localStorage.removeItem(CURRENT_USER_KEY);
 };
 
 init();
