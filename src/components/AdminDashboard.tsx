@@ -1,42 +1,47 @@
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { createUser, deleteUser, getUsers, User } from '@/services/mockService';
+import { createUser, getUsers, User } from '@/services/mockService';
 import { toast } from 'sonner';
-import { UserPlus, Shield, Trash2 } from 'lucide-react';
+import { UserPlus, Shield, Loader2 } from 'lucide-react';
 
 const AdminDashboard = () => {
   const [newUser, setNewUser] = useState('');
   const [newPass, setNewPass] = useState('');
-  const [users, setUsers] = useState<User[]>(getUsers());
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(false);
 
-  const handleCreateUser = (e: React.FormEvent) => {
+  const refreshUsers = async () => {
+    const u = await getUsers();
+    setUsers(u);
+  };
+
+  useEffect(() => {
+    refreshUsers();
+  }, []);
+
+  const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!newUser || !newPass) {
       toast.error("Username and Password required");
       return;
     }
 
-    const success = createUser(newUser, newPass, 'user');
+    setLoading(true);
+    const success = await createUser(newUser, newPass, 'user');
+    setLoading(false);
+
     if (success) {
       toast.success(`Elf ${newUser} recruited!`);
       setNewUser('');
       setNewPass('');
-      setUsers(getUsers());
+      refreshUsers();
     } else {
-      toast.error("User already exists!");
-    }
-  };
-
-  const handleDeleteUser = (username: string) => {
-    if (confirm(`Are you sure you want to remove ${username} from the Nice List?`)) {
-      deleteUser(username);
-      setUsers(getUsers());
-      toast.success("User deleted");
+      toast.error("Failed to create user. It may already exist.");
     }
   };
 
@@ -55,14 +60,16 @@ const AdminDashboard = () => {
               placeholder="New Username" 
               value={newUser} 
               onChange={e => setNewUser(e.target.value)}
+              disabled={loading}
             />
             <Input 
               placeholder="Password" 
               value={newPass} 
               onChange={e => setNewPass(e.target.value)}
+              disabled={loading}
             />
-            <Button type="submit" className="bg-green-600 hover:bg-green-700 text-white">
-              <UserPlus className="w-4 h-4 mr-2" />
+            <Button type="submit" className="bg-green-600 hover:bg-green-700 text-white" disabled={loading}>
+              {loading ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <UserPlus className="w-4 h-4 mr-2" />}
               Add Elf
             </Button>
           </form>
@@ -74,7 +81,6 @@ const AdminDashboard = () => {
                   <TableHead>Avatar</TableHead>
                   <TableHead>Username</TableHead>
                   <TableHead>Role</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -86,18 +92,6 @@ const AdminDashboard = () => {
                       <span className={`px-2 py-1 rounded-full text-xs ${user.role === 'admin' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
                         {user.role}
                       </span>
-                    </TableCell>
-                    <TableCell className="text-right">
-                      {user.username !== 'admin' && (
-                        <Button 
-                          variant="ghost" 
-                          size="icon" 
-                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                          onClick={() => handleDeleteUser(user.username)}
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </Button>
-                      )}
                     </TableCell>
                   </TableRow>
                 ))}

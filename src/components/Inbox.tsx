@@ -14,8 +14,9 @@ interface InboxProps {
 const Inbox = ({ currentUser }: InboxProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
 
-  const fetchMessages = () => {
-    setMessages(getMessagesForUser(currentUser));
+  const fetchMessages = async () => {
+    const msgs = await getMessagesForUser(currentUser);
+    setMessages(msgs);
   };
 
   useEffect(() => {

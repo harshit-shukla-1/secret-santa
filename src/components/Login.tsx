@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { Gift } from 'lucide-react';
+import { Gift, Loader2 } from 'lucide-react';
 import { authenticate, User } from '@/services/mockService';
 import { toast } from 'sonner';
 
@@ -15,20 +15,28 @@ interface LoginProps {
 const Login = ({ onLogin }: LoginProps) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!username.trim() || !password.trim()) {
       toast.error("Please enter both username and password");
       return;
     }
     
-    const user = authenticate(username.trim(), password.trim());
-    if (user) {
-      toast.success(`Welcome back, ${user.username}! 🎄`);
-      onLogin(user);
-    } else {
-      toast.error("Invalid credentials");
+    setLoading(true);
+    try {
+      const user = await authenticate(username.trim(), password.trim());
+      if (user) {
+        toast.success(`Welcome back, ${user.username}! 🎄`);
+        onLogin(user);
+      } else {
+        toast.error("Invalid credentials");
+      }
+    } catch (error) {
+      toast.error("Login failed");
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -53,6 +61,7 @@ const Login = ({ onLogin }: LoginProps) => {
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
                   className="text-lg border-green-200 focus:border-primary"
+                  disabled={loading}
                 />
               </div>
               <div className="space-y-2">
@@ -62,6 +71,7 @@ const Login = ({ onLogin }: LoginProps) => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="text-lg border-green-200 focus:border-primary"
+                  disabled={loading}
                 />
               </div>
               <div className="text-xs text-center text-muted-foreground mt-2">
@@ -70,8 +80,8 @@ const Login = ({ onLogin }: LoginProps) => {
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-6 text-lg">
-              Open My Gift 🎁
+            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-6 text-lg" disabled={loading}>
+              {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Open My Gift 🎁"}
             </Button>
           </CardFooter>
         </form>

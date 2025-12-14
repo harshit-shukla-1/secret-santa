@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Message, getAllMessages, getPersistedUser, deleteMessage, User } from '@/services/mockService';
+import { Message, getAllMessages, getSessionUser, deleteMessage, User } from '@/services/mockService';
 import { Music, ArrowLeft, Gift, Trash2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
@@ -11,17 +11,27 @@ const PublicWall = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const navigate = useNavigate();
 
+  const fetchMessages = async () => {
+    const msgs = await getAllMessages();
+    setMessages(msgs);
+  };
+
   useEffect(() => {
-    setCurrentUser(getPersistedUser());
-    setMessages(getAllMessages());
-    const interval = setInterval(() => setMessages(getAllMessages()), 5000);
+    const init = async () => {
+        const user = await getSessionUser();
+        setCurrentUser(user);
+        await fetchMessages();
+    };
+    init();
+
+    const interval = setInterval(fetchMessages, 5000);
     return () => clearInterval(interval);
   }, []);
 
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to remove this message from the wall?")) {
-      deleteMessage(id);
-      setMessages(getAllMessages());
+      await deleteMessage(id);
+      await fetchMessages();
       toast.success("Message removed from wall");
     }
   };
@@ -33,7 +43,6 @@ const PublicWall = () => {
           <div className="flex items-center gap-2 bg-slate-50 p-2 rounded border border-slate-100">
             <Music className="w-4 h-4 text-primary" />
             <span className="text-sm text-muted-foreground">Voice Note Sent</span>
-            {/* Audio controls hidden on public wall for privacy/noise, or can be shown */}
             <audio src={msg.body} controls className="h-8 w-40" />
           </div>
         );
@@ -95,7 +104,7 @@ const PublicWall = () => {
                             <span className="text-2xl">🎁</span>
                             <div className="flex flex-col">
                                 <span className="text-xs text-muted-foreground uppercase tracking-wider font-bold">To</span>
-                                <span className="font-bold text-green-800">{msg.to}</span>
+                                <span className="font-bold text-green-800">{msg.to_username}</span>
                             </div>
                         </div>
                         <span className="text-xs text-muted-foreground">{new Date(msg.timestamp).toLocaleDateString()}</span>

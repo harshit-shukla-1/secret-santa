@@ -6,36 +6,39 @@ import AdminDashboard from '@/components/AdminDashboard';
 import AvatarSelector from '@/components/AvatarSelector';
 import UpdatePasswordDialog from '@/components/UpdatePasswordDialog';
 import { Button } from '@/components/ui/button';
-import { LogOut, Globe } from 'lucide-react';
+import { LogOut, Globe, Loader2 } from 'lucide-react';
 import { Toaster } from 'sonner';
-import { User, getPersistedUser, persistLogin, logoutUser } from '@/services/mockService';
+import { User, getSessionUser, logoutUser } from '@/services/mockService';
 import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const savedUser = getPersistedUser();
-    if (savedUser) {
-      setCurrentUser(savedUser);
-    }
+    const checkSession = async () => {
+      const user = await getSessionUser();
+      if (user) {
+        setCurrentUser(user);
+      }
+      setLoading(false);
+    };
+    checkSession();
   }, []);
 
   const handleLogin = (user: User) => {
-    persistLogin(user);
     setCurrentUser(user);
   };
 
-  const handleLogout = () => {
-    logoutUser();
+  const handleLogout = async () => {
+    await logoutUser();
     setCurrentUser(null);
   };
 
   const handleAvatarUpdate = (newAvatar: string) => {
     if (currentUser) {
       setCurrentUser({ ...currentUser, avatar: newAvatar });
-      // Persistence is handled inside updateUserAvatar service for session
     }
   };
 
@@ -43,6 +46,14 @@ const Index = () => {
   const snowflakes = Array.from({ length: 12 }).map((_, i) => (
     <div key={i} className="snowflake">❅</div>
   ));
+
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-slate-50">
+        <Loader2 className="w-10 h-10 text-primary animate-spin" />
+      </div>
+    );
+  }
 
   if (!currentUser) {
     return (

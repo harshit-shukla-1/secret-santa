@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getUsers, sendMessage, getSentMessages, deleteMessage, User, Message } from '@/services/mockService';
 import { toast } from 'sonner';
-import { Send, Mic, Image as ImageIcon, Type, StopCircle, Trash2, Clock, History } from 'lucide-react';
+import { Send, Mic, Image as ImageIcon, Type, StopCircle, Trash2, History, Loader2 } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface SendMessageProps {
@@ -19,6 +19,8 @@ const SendMessage = ({ currentUser }: SendMessageProps) => {
   const [selectedUser, setSelectedUser] = useState('');
   const [textMessage, setTextMessage] = useState('');
   const [activeTab, setActiveTab] = useState('text');
+  const [sending, setSending] = useState(false);
+  const [usersList, setUsersList] = useState<User[]>([]);
   
   // Sent history state
   const [sentMessages, setSentMessages] = useState<Message[]>([]);
@@ -33,16 +35,23 @@ const SendMessage = ({ currentUser }: SendMessageProps) => {
   const [imageData, setImageData] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const users = getUsers().filter(u => u.username !== currentUser.username);
+  useEffect(() => {
+    const fetchData = async () => {
+        const u = await getUsers();
+        setUsersList(u.filter(user => user.username !== currentUser.username));
+    };
+    fetchData();
+  }, [currentUser]);
 
   useEffect(() => {
     refreshSentMessages();
-    const interval = setInterval(refreshSentMessages, 5000); // Update timers
+    const interval = setInterval(refreshSentMessages, 5000);
     return () => clearInterval(interval);
   }, [currentUser]);
 
-  const refreshSentMessages = () => {
-    setSentMessages(getSentMessages(currentUser.username));
+  const refreshSentMessages = async () => {
+    const msgs = await getSentMessages(currentUser.username);
+    setSentMessages(msgs);
   };
 
   // Audio Recording Logic
@@ -97,39 +106,47 @@ const SendMessage = ({ currentUser }: SendMessageProps) => {
     }
   };
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!selectedUser) {
       toast.error("Please select a recipient (Who has been naughty or nice?)");
       return;
     }
 
+    setSending(true);
     let success = false;
-    if (activeTab === 'text') {
-      if (!textMessage.trim()) return toast.error("Write a message!");
-      success = sendMessage(currentUser.username, selectedUser, textMessage, 'text');
-    } else if (activeTab === 'audio') {
-      if (!audioData) return toast.error("Record a message first!");
-      success = sendMessage(currentUser.username, selectedUser, audioData, 'audio');
-    } else if (activeTab === 'image') {
-      if (!imageData) return toast.error("Select an image first!");
-      success = sendMessage(currentUser.username, selectedUser, imageData, 'image');
-    }
+    
+    try {
+        if (activeTab === 'text') {
+            if (!textMessage.trim()) { setSending(false); return toast.error("Write a message!"); }
+            success = await sendMessage(currentUser.username, selectedUser, textMessage, 'text');
+        } else if (activeTab === 'audio') {
+            if (!audioData) { setSending(false); return toast.error("Record a message first!"); }
+            success = await sendMessage(currentUser.username, selectedUser, audioData, 'audio');
+        } else if (activeTab === 'image') {
+            if (!imageData) { setSending(false); return toast.error("Select an image first!"); }
+            success = await sendMessage(currentUser.username, selectedUser, imageData, 'image');
+        }
 
-    if (success) {
-      toast.success(`Secret gift sent to ${selectedUser}! 🎁`);
-      refreshSentMessages();
-      // Reset
-      setTextMessage('');
-      setAudioData(null);
-      setImageData(null);
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    } else {
-      toast.error("Failed to send. Storage might be full!");
+        if (success) {
+            toast.success(`Secret gift sent to ${selectedUser}! 🎁`);
+            refreshSentMessages();
+            // Reset
+            setTextMessage('');
+            setAudioData(null);
+            setImageData(null);
+            if (fileInputRef.current) fileInputRef.current.value = '';
+        } else {
+            toast.error("Failed to send.");
+        }
+    } catch (e) {
+        toast.error("Error sending message");
+    } finally {
+        setSending(false);
     }
   };
 
-  const handleDelete = (id: string) => {
-    deleteMessage(id);
+  const handleDelete = async (id: string) => {
+    await deleteMessage(id);
     refreshSentMessages();
     toast.success("Message deleted successfully");
   };
@@ -167,7 +184,7 @@ const SendMessage = ({ currentUser }: SendMessageProps) => {
                   <SelectValue placeholder="Select a colleague..." />
                 </SelectTrigger>
                 <SelectContent>
-                  {users.map(user => (
+                  {usersList.map(user => (
                     <SelectItem key={user.username} value={user.username}>
                       <span className="flex items-center gap-2">
                         <span>{user.avatar}</span>
@@ -252,8 +269,8 @@ const SendMessage = ({ currentUser }: SendMessageProps) => {
             </Tabs>
           </CardContent>
           <CardFooter>
-            <Button onClick={handleSend} className="w-full bg-primary hover:bg-primary/90 text-white font-bold">
-              Send Anonymously 🎅
+            <Button onClick={handleSend} disabled={sending} className="w-full bg-primary hover:bg-primary/90 text-white font-bold">
+              {sending ? <Loader2 className="w-4 h-4 animate-spin mr-2"/> : "Send Anonymously 🎅"}
             </Button>
           </CardFooter>
         </>
@@ -272,7 +289,7 @@ const SendMessage = ({ currentUser }: SendMessageProps) => {
                   return (
                     <div key={msg.id} className="p-3 bg-secondary/20 rounded border flex items-center justify-between gap-2">
                       <div className="overflow-hidden">
-                        <p className="text-xs font-bold text-primary mb-1">To: {msg.to}</p>
+                        <p className="text-xs font-bold text-primary mb-1">To: {msg.to_username}</p>
                         <p className="text-sm truncate">
                           {msg.type === 'text' ? msg.body : `[${msg.type.toUpperCase()}]`}
                         </p>

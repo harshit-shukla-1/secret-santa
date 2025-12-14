@@ -6,8 +6,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from 
 import { Button } from '@/components/ui/button';
 import { toast } from 'sonner';
 
-// Using emojis as reliable "cartoon" characters for this demo to avoid external image 403s
-// In a real app, replace these with image URLs
 const AVATARS = [
   '🎅', '🤶', '🦌', '⛄', '🧝', '🍪', 
   '🦊', '🐻', '🐼', '🦁', '🐯', '🦄',
@@ -20,8 +18,8 @@ interface AvatarSelectorProps {
 }
 
 const AvatarSelector = ({ user, onUpdate }: AvatarSelectorProps) => {
-  const handleSelect = (avatar: string) => {
-    updateUserAvatar(user.username, avatar);
+  const handleSelect = async (avatar: string) => {
+    await updateUserAvatar(user.username, avatar);
     onUpdate(avatar);
     toast.success("Avatar updated!");
   };
