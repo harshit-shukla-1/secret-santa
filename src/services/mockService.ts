@@ -54,7 +54,7 @@ export const createUser = (username: string, password?: string, role: UserRole =
     username, 
     password, 
     role,
-    avatar: role === 'admin' ? '🎅' : '☃️'
+    avatar: role === 'admin' ? '🎅' : '☃️' // Default avatars
   };
   
   users.push(newUser);
@@ -65,6 +65,17 @@ export const createUser = (username: string, password?: string, role: UserRole =
 export const deleteUser = (username: string) => {
   const users = getUsers().filter(u => u.username !== username);
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
+};
+
+export const updatePassword = (username: string, newPass: string): boolean => {
+  const users = getUsers();
+  const index = users.findIndex(u => u.username === username);
+  if (index !== -1) {
+    users[index].password = newPass;
+    localStorage.setItem(USERS_KEY, JSON.stringify(users));
+    return true;
+  }
+  return false;
 };
 
 export const updateUserAvatar = (username: string, avatar: string) => {
@@ -91,6 +102,11 @@ export const getMessagesForUser = (username: string): Message[] => {
     .sort((a, b) => b.timestamp - a.timestamp);
 };
 
+export const getAllMessages = (): Message[] => {
+  const messages = localStorage.getItem(MESSAGES_KEY);
+  return messages ? JSON.parse(messages).sort((a: Message, b: Message) => b.timestamp - a.timestamp) : [];
+};
+
 export const getSentMessages = (username: string): Message[] => {
   const messages = localStorage.getItem(MESSAGES_KEY);
   const allMessages: Message[] = messages ? JSON.parse(messages) : [];
@@ -106,7 +122,7 @@ export const sendMessage = (from: string, to: string, body: string, type: Messag
   try {
     const newMessage: Message = {
       id: Date.now().toString(),
-      from, // Now we store who sent it so they can delete it
+      from, 
       to,
       body,
       type,

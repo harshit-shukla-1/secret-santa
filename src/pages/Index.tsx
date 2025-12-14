@@ -4,13 +4,16 @@ import SendMessage from '@/components/SendMessage';
 import Inbox from '@/components/Inbox';
 import AdminDashboard from '@/components/AdminDashboard';
 import AvatarSelector from '@/components/AvatarSelector';
+import UpdatePasswordDialog from '@/components/UpdatePasswordDialog';
 import { Button } from '@/components/ui/button';
-import { LogOut } from 'lucide-react';
+import { LogOut, Globe } from 'lucide-react';
 import { Toaster } from 'sonner';
 import { User } from '@/services/mockService';
+import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const navigate = useNavigate();
 
   const handleLogout = () => {
     setCurrentUser(null);
@@ -49,6 +52,15 @@ const Index = () => {
           <div className="container mx-auto pt-10 px-4 text-white">
             <h1 className="text-4xl font-bold font-serif mb-2 text-shadow">🎄 Secret Santa HQ</h1>
             <p className="opacity-90">Spread joy anonymously!</p>
+            <div className="mt-4">
+                 <Button 
+                    onClick={() => navigate('/wall')} 
+                    className="bg-white/20 hover:bg-white/30 text-white border border-white/40 backdrop-blur-sm"
+                 >
+                    <Globe className="w-4 h-4 mr-2" />
+                    View Public Wall
+                 </Button>
+            </div>
           </div>
        </div>
 
@@ -64,6 +76,9 @@ const Index = () => {
                 {currentUser.username}
                 {currentUser.role === 'admin' && <span className="bg-red-100 text-red-600 text-xs px-2 py-1 rounded-full border border-red-200">Admin</span>}
               </h2>
+              <div className="mt-1">
+                 <UpdatePasswordDialog user={currentUser} />
+              </div>
             </div>
           </div>
           <Button variant="outline" onClick={handleLogout} className="text-red-600 hover:text-red-700 hover:bg-red-50">
