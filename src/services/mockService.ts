@@ -54,6 +54,20 @@ export const createUser = async (username: string, password?: string, role: User
   }
 };
 
+export const resetAdmin = async (): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('reset-admin', {});
+    if (error) {
+        console.error("Reset admin error:", error);
+        return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("Exception resetting admin:", e);
+    return false;
+  }
+};
+
 export const deleteUser = async (username: string) => {
   console.log("Delete user not fully implemented for Supabase Auth without Admin API");
   return; 
