@@ -7,15 +7,21 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !supabaseServiceKey) {
+        throw new Error(`Missing Env Vars: URL=${!!supabaseUrl}, KEY=${!!supabaseServiceKey}`);
+    }
+
     const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      supabaseUrl,
+      supabaseServiceKey,
       {
         auth: {
             autoRefreshToken: false,
@@ -28,7 +34,7 @@ serve(async (req) => {
     const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
     
     if (listError) {
-        throw new Error(`Failed to list users: ${listError.message}`);
+        throw new Error(`List Users Error: ${listError.message}`);
     }
 
     const adminEmail = 'admin@secretsanta.app';
@@ -37,7 +43,6 @@ serve(async (req) => {
     let userId;
 
     if (adminUser) {
-        console.log("Admin exists, updating password...");
         userId = adminUser.id;
         // Update existing user
         const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
@@ -48,9 +53,8 @@ serve(async (req) => {
                 user_metadata: { username: 'admin', role: 'admin', avatar: '🎅' }
             }
         );
-        if (updateError) throw updateError;
+        if (updateError) throw new Error(`Update User Error: ${updateError.message}`);
     } else {
-        console.log("Creating new admin user...");
         // Create new user
         const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
             email: adminEmail,
@@ -58,7 +62,7 @@ serve(async (req) => {
             email_confirm: true,
             user_metadata: { username: 'admin', role: 'admin', avatar: '🎅' }
         });
-        if (createError) throw createError;
+        if (createError) throw new Error(`Create User Error: ${createError.message}`);
         userId = createData.user.id;
     }
 
@@ -74,20 +78,24 @@ serve(async (req) => {
             });
             
         if (profileError) {
-            console.error("Profile sync error:", profileError);
-            // We continue even if profile sync fails, as auth is the priority
+             // If this fails, it might be RLS, but service role bypasses RLS.
+             // However, just in case, we log it.
+             console.log("Profile sync warning: " + profileError.message);
         }
     }
 
-    return new Response(JSON.stringify({ message: "Admin reset successfully" }), { 
+    return new Response(JSON.stringify({ success: true, message: "Admin reset successfully" }), { 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200 
     })
 
   } catch (error) {
-    console.error("Reset execution error:", error);
-    return new Response(JSON.stringify({ error: error.message || 'Unknown error occurred' }), { 
-      status: 500, 
+    // Return 200 with error details so the client can display them
+    return new Response(JSON.stringify({ 
+        success: false, 
+        error: error.message || 'Unknown error occurred' 
+    }), { 
+      status: 200, 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     })
   }
