@@ -5,9 +5,9 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { createUser, getUsers, User } from '@/services/mockService';
+import { createUser, getUsers, deleteUser, User } from '@/services/mockService';
 import { toast } from 'sonner';
-import { UserPlus, Shield, Loader2 } from 'lucide-react';
+import { UserPlus, Shield, Loader2, Trash2 } from 'lucide-react';
 
 const AdminDashboard = () => {
   const [newUser, setNewUser] = useState('');
@@ -42,6 +42,26 @@ const AdminDashboard = () => {
       refreshUsers();
     } else {
       toast.error("Failed to create user. It may already exist.");
+    }
+  };
+
+  const handleDeleteUser = async (username: string) => {
+    if (username === 'admin') {
+      toast.error("Cannot delete the main admin!");
+      return;
+    }
+    
+    if (confirm(`Are you sure you want to banish elf "${username}"?`)) {
+      setLoading(true);
+      const success = await deleteUser(username);
+      setLoading(false);
+      
+      if (success) {
+        toast.success(`User ${username} deleted.`);
+        refreshUsers();
+      } else {
+        toast.error("Failed to delete user.");
+      }
     }
   };
 
@@ -81,6 +101,7 @@ const AdminDashboard = () => {
                   <TableHead>Avatar</TableHead>
                   <TableHead>Username</TableHead>
                   <TableHead>Role</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -92,6 +113,19 @@ const AdminDashboard = () => {
                       <span className={`px-2 py-1 rounded-full text-xs ${user.role === 'admin' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
                         {user.role}
                       </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {user.role !== 'admin' && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleDeleteUser(user.username)}
+                          disabled={loading}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}

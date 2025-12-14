@@ -21,7 +21,6 @@ export interface Message {
   timestamp: number; 
 }
 
-// CHANGED: Updated domain to match the new backend logic
 const getEmail = (username: string) => `${username}@secretsantahq.com`;
 
 export const getUsers = async (): Promise<User[]> => {
@@ -53,6 +52,23 @@ export const createUser = async (username: string, password?: string, role: User
   }
 };
 
+export const deleteUser = async (username: string): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('delete-user', {
+      body: { username }
+    });
+    
+    if (error || (data && data.error)) {
+      console.error("Error deleting user:", error || data.error);
+      return false;
+    }
+    return true;
+  } catch (e) {
+    console.error("Exception deleting user:", e);
+    return false;
+  }
+};
+
 export const resetAdmin = async (): Promise<{ success: boolean; message?: string }> => {
   try {
     const { data, error } = await supabase.functions.invoke('reset-admin', {});
@@ -67,11 +83,6 @@ export const resetAdmin = async (): Promise<{ success: boolean; message?: string
   } catch (e: any) {
     return { success: false, message: e.message };
   }
-};
-
-export const deleteUser = async (username: string) => {
-  console.log("Delete user not fully implemented for Supabase Auth without Admin API");
-  return; 
 };
 
 export const updatePassword = async (username: string, newPass: string): Promise<boolean> => {
@@ -117,7 +128,6 @@ export const authenticate = async (username: string, password?: string): Promise
     .single();
 
   if (profileError) {
-    // Fallback if profile missing (shouldn't happen with new logic)
     return {
         id: data.user.id,
         username: username,

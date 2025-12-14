@@ -8,7 +8,7 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/componen
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { getUsers, sendMessage, getSentMessages, deleteMessage, User, Message } from '@/services/mockService';
 import { toast } from 'sonner';
-import { Send, Mic, Image as ImageIcon, Type, StopCircle, Trash2, History, Loader2 } from 'lucide-react';
+import { Send, Mic, Image as ImageIcon, Type, StopCircle, Trash2, History, Loader2, ArrowLeft } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface SendMessageProps {
@@ -161,7 +161,7 @@ const SendMessage = ({ currentUser }: SendMessageProps) => {
       <CardHeader className="flex flex-row items-center justify-between pb-2">
         <CardTitle className="flex items-center gap-2 text-primary">
           <Send className="w-5 h-5" />
-          Send Anonymous Surprise
+          {showHistory ? "Sent History" : "Send Anonymous Surprise"}
         </CardTitle>
         <Button 
           variant="ghost" 
@@ -169,8 +169,17 @@ const SendMessage = ({ currentUser }: SendMessageProps) => {
           onClick={() => setShowHistory(!showHistory)}
           className={showHistory ? 'bg-secondary' : ''}
         >
-          <History className="w-4 h-4 mr-2" />
-          History
+          {showHistory ? (
+             <>
+               <ArrowLeft className="w-4 h-4 mr-2" />
+               Back to Send
+             </>
+          ) : (
+             <>
+               <History className="w-4 h-4 mr-2" />
+               History
+             </>
+          )}
         </Button>
       </CardHeader>
       
