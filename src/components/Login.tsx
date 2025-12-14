@@ -45,16 +45,16 @@ const Login = ({ onLogin }: LoginProps) => {
     setResetting(true);
     toast.info("Resetting admin user... please wait.");
     try {
-        const success = await resetAdmin();
-        if (success) {
+        const result = await resetAdmin();
+        if (result.success) {
             toast.success("Admin reset! Try logging in now.");
             setUsername('admin');
             setPassword('admin123');
         } else {
-            toast.error("Failed to reset admin.");
+            toast.error(`Failed: ${result.message || 'Unknown error'}`);
         }
-    } catch (e) {
-        toast.error("Error resetting admin.");
+    } catch (e: any) {
+        toast.error(`Error: ${e.message || 'Unknown error'}`);
     } finally {
         setResetting(false);
     }

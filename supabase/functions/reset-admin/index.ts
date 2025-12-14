@@ -7,6 +7,7 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight request
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -23,41 +24,58 @@ serve(async (req) => {
       }
     )
 
-    // 1. Find existing admin user
-    const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
-    const adminUser = users.find(u => u.email === 'admin@secretsanta.app');
+    // 1. Check if admin exists
+    const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers();
     
-    // 2. Delete if exists
-    if (adminUser) {
-        console.log("Deleting existing admin user:", adminUser.id);
-        await supabaseAdmin.auth.admin.deleteUser(adminUser.id);
+    if (listError) {
+        throw new Error(`Failed to list users: ${listError.message}`);
     }
 
-    // 3. Create new admin user
-    console.log("Creating new admin user");
-    const { data, error } = await supabaseAdmin.auth.admin.createUser({
-      email: 'admin@secretsanta.app',
-      password: 'admin123',
-      email_confirm: true,
-      user_metadata: { username: 'admin', role: 'admin', avatar: '🎅' }
-    })
+    const adminEmail = 'admin@secretsanta.app';
+    const adminUser = users.find(u => u.email === adminEmail);
+    
+    let userId;
 
-    if (error) throw error;
+    if (adminUser) {
+        console.log("Admin exists, updating password...");
+        userId = adminUser.id;
+        // Update existing user
+        const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+            userId,
+            { 
+                password: 'admin123',
+                email_confirm: true,
+                user_metadata: { username: 'admin', role: 'admin', avatar: '🎅' }
+            }
+        );
+        if (updateError) throw updateError;
+    } else {
+        console.log("Creating new admin user...");
+        // Create new user
+        const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
+            email: adminEmail,
+            password: 'admin123',
+            email_confirm: true,
+            user_metadata: { username: 'admin', role: 'admin', avatar: '🎅' }
+        });
+        if (createError) throw createError;
+        userId = createData.user.id;
+    }
 
-    // 4. Ensure profile exists (in case trigger failed or race condition)
-    if (data.user) {
+    // 2. Ensure profile exists and is correct
+    if (userId) {
         const { error: profileError } = await supabaseAdmin
             .from('profiles')
             .upsert({
-                id: data.user.id,
+                id: userId,
                 username: 'admin',
                 role: 'admin',
                 avatar: '🎅'
             });
             
         if (profileError) {
-            console.error("Profile creation error:", profileError);
-            // Don't fail the request, auth user is created
+            console.error("Profile sync error:", profileError);
+            // We continue even if profile sync fails, as auth is the priority
         }
     }
 
@@ -67,8 +85,8 @@ serve(async (req) => {
     })
 
   } catch (error) {
-    console.error("Reset error:", error);
-    return new Response(JSON.stringify({ error: error.message }), { 
+    console.error("Reset execution error:", error);
+    return new Response(JSON.stringify({ error: error.message || 'Unknown error occurred' }), { 
       status: 500, 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
     })

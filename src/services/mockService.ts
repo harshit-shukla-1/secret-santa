@@ -10,7 +10,6 @@ export interface User {
   username: string;
   role: UserRole;
   avatar?: string;
-  // We don't store password in frontend model anymore
 }
 
 export interface Message {
@@ -54,17 +53,32 @@ export const createUser = async (username: string, password?: string, role: User
   }
 };
 
-export const resetAdmin = async (): Promise<boolean> => {
+export const resetAdmin = async (): Promise<{ success: boolean; message?: string }> => {
   try {
     const { data, error } = await supabase.functions.invoke('reset-admin', {});
+    
     if (error) {
-        console.error("Reset admin error:", error);
-        return false;
+        console.error("Reset admin invoke error:", error);
+        // Supabase Edge Function invoke error (e.g. 500 or network)
+        // Check if the response body has an error message
+        try {
+            // Sometimes error is an object with context
+            if (error instanceof Error) return { success: false, message: error.message };
+            // Or just a string
+            return { success: false, message: JSON.stringify(error) };
+        } catch {
+             return { success: false, message: "Network or Server Error" };
+        }
     }
-    return true;
-  } catch (e) {
+
+    if (data && data.error) {
+        return { success: false, message: data.error };
+    }
+
+    return { success: true };
+  } catch (e: any) {
     console.error("Exception resetting admin:", e);
-    return false;
+    return { success: false, message: e.message || "Unknown client error" };
   }
 };
 
