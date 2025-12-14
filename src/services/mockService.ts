@@ -21,8 +21,8 @@ export interface Message {
   timestamp: number; 
 }
 
-// Helpers
-const getEmail = (username: string) => `${username}@secretsanta.app`;
+// CHANGED: Updated domain to match the new backend logic
+const getEmail = (username: string) => `${username}@secretsantahq.com`;
 
 export const getUsers = async (): Promise<User[]> => {
   const { data, error } = await supabase
@@ -57,21 +57,15 @@ export const resetAdmin = async (): Promise<{ success: boolean; message?: string
   try {
     const { data, error } = await supabase.functions.invoke('reset-admin', {});
     
-    // Handle network/invoke errors
     if (error) {
-        console.error("Reset admin invoke error:", error);
-        return { success: false, message: error.message || "Network error calling function" };
+        return { success: false, message: error.message };
     }
-
-    // Handle function logic errors (which now come back as 200 OK with success: false)
     if (data && data.success === false) {
         return { success: false, message: data.error };
     }
-
     return { success: true };
   } catch (e: any) {
-    console.error("Exception resetting admin:", e);
-    return { success: false, message: e.message || "Unknown client error" };
+    return { success: false, message: e.message };
   }
 };
 
@@ -116,7 +110,6 @@ export const authenticate = async (username: string, password?: string): Promise
     return null;
   }
 
-  // Fetch profile details
   const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('*')
@@ -124,8 +117,7 @@ export const authenticate = async (username: string, password?: string): Promise
     .single();
 
   if (profileError) {
-    console.error("Error fetching profile:", profileError);
-    // Fallback if profile missing but auth exists (shouldn't happen with our seed)
+    // Fallback if profile missing (shouldn't happen with new logic)
     return {
         id: data.user.id,
         username: username,

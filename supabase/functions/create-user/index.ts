@@ -46,7 +46,8 @@ serve(async (req) => {
       return new Response('Missing username or password', { status: 400, headers: corsHeaders })
     }
 
-    const email = `${username}@secretsanta.app`
+    // CHANGED: Use the new domain
+    const email = `${username}@secretsantahq.com`
 
     const { data, error } = await supabaseClient.auth.admin.createUser({
       email,

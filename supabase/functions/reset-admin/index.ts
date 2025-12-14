@@ -30,16 +30,23 @@ serve(async (req) => {
       }
     )
 
-    const adminEmail = 'admin@secretsanta.app';
+    // CHANGED: Use a new email domain to bypass the corrupted 'admin@secretsanta.app' record
+    const adminEmail = 'admin@secretsantahq.com';
     const adminPassword = 'admin123';
+    
+    console.log(`Resetting admin to NEW identity: ${adminEmail}`);
+
+    // 1. Clean up public profile first (to free up the 'admin' username if it's unique)
+    const { error: delError } = await supabaseAdmin
+        .from('profiles')
+        .delete()
+        .eq('username', 'admin');
+        
+    if (delError) console.log("Warning deleting old profile:", delError.message);
+
+    // 2. Create the NEW Admin User
+    // We try create first. If it exists (unlikely with new domain), we update.
     let userId;
-
-    console.log(`Attempting to reset admin: ${adminEmail}`);
-
-    // STRATEGY: 
-    // 1. Try Create
-    // 2. If Exists -> Try Update
-    // 3. If Update Fails -> Delete & Recreate (The Fix)
 
     const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email: adminEmail,
@@ -49,78 +56,30 @@ serve(async (req) => {
     });
 
     if (!createError && createData.user) {
-        console.log("Admin created successfully");
         userId = createData.user.id;
     } else {
-        console.log(`Create failed (${createError?.message}), attempting recovery...`);
-        
-        // Find existing ID
-        const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('get_user_id_by_email', { 
-            email: adminEmail 
+        // If this new email ALSO exists, find it and update it
+        console.log("User exists, updating...");
+        const { data: rpcData } = await supabaseAdmin.rpc('get_user_id_by_email', { email: adminEmail });
+        if (rpcData) {
+            userId = rpcData;
+            await supabaseAdmin.auth.admin.updateUserById(userId, { password: adminPassword });
+        }
+    }
+
+    if (!userId) throw new Error("Failed to create or find new admin user.");
+
+    // 3. Ensure Profile Exists
+    const { error: profileError } = await supabaseAdmin
+        .from('profiles')
+        .upsert({
+            id: userId,
+            username: 'admin',
+            role: 'admin',
+            avatar: '🎅'
         });
 
-        if (rpcError || !rpcData) {
-            throw new Error(`Could not create or find admin user. Create Error: ${createError?.message}. Lookup Error: ${rpcError?.message}`);
-        }
-
-        userId = rpcData;
-        console.log(`Found existing admin ID: ${userId}`);
-
-        // Try standard update
-        const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-            userId,
-            { 
-                password: adminPassword,
-                email_confirm: true,
-                user_metadata: { username: 'admin', role: 'admin', avatar: '🎅' }
-            }
-        );
-
-        if (updateError) {
-            console.log(`Standard update failed (${updateError.message}). executing force re-creation...`);
-            
-            // NUCLEAR OPTION: Delete the corrupted user
-            const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
-            
-            if (deleteError) {
-                // If we can't delete, we are truly stuck, but let's try to proceed anyway or throw
-                throw new Error(`Critical: Could not delete corrupted user. ${deleteError.message}`);
-            }
-
-            // Create Fresh
-            const { data: recreateData, error: recreateError } = await supabaseAdmin.auth.admin.createUser({
-                email: adminEmail,
-                password: adminPassword,
-                email_confirm: true,
-                user_metadata: { username: 'admin', role: 'admin', avatar: '🎅' }
-            });
-
-            if (recreateError) {
-                throw new Error(`Force re-creation failed: ${recreateError.message}`);
-            }
-            
-            userId = recreateData.user.id;
-            console.log("Admin successfully force re-created with new ID");
-        }
-    }
-
-    // Ensure Profile Exists in Public Table
-    if (userId) {
-        const { error: profileError } = await supabaseAdmin
-            .from('profiles')
-            .upsert({
-                id: userId,
-                username: 'admin',
-                role: 'admin',
-                avatar: '🎅'
-            });
-            
-        if (profileError) {
-            console.log("Profile sync warning:", profileError);
-        }
-    }
-
-    return new Response(JSON.stringify({ success: true, message: "Admin reset to 'admin' / 'admin123'" }), { 
+    return new Response(JSON.stringify({ success: true, message: "Admin reset! Login with admin / admin123" }), { 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200 
     })
@@ -128,7 +87,7 @@ serve(async (req) => {
   } catch (error) {
     return new Response(JSON.stringify({ 
         success: false, 
-        error: error.message || 'Unknown error occurred' 
+        error: error.message || 'Unknown error' 
     }), { 
       status: 200, 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
