@@ -4,8 +4,8 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { Gift, Loader2, RefreshCw } from 'lucide-react';
-import { authenticate, resetAdmin, User } from '@/services/mockService';
+import { Gift, Loader2 } from 'lucide-react';
+import { authenticate, User } from '@/services/mockService';
 import { toast } from 'sonner';
 
 interface LoginProps {
@@ -16,7 +16,6 @@ const Login = ({ onLogin }: LoginProps) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [resetting, setResetting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,25 +37,6 @@ const Login = ({ onLogin }: LoginProps) => {
       toast.error("Login failed");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleResetAdmin = async () => {
-    setResetting(true);
-    toast.info("Resetting admin user... please wait.");
-    try {
-        const result = await resetAdmin();
-        if (result.success) {
-            toast.success("Admin reset! Try logging in now.");
-            setUsername('admin');
-            setPassword('admin123');
-        } else {
-            toast.error(`Failed: ${result.message || 'Unknown error'}`);
-        }
-    } catch (e: any) {
-        toast.error(`Error: ${e.message || 'Unknown error'}`);
-    } finally {
-        setResetting(false);
     }
   };
 
@@ -94,24 +74,10 @@ const Login = ({ onLogin }: LoginProps) => {
                   disabled={loading}
                 />
               </div>
-              <div className="flex flex-col gap-2 items-center text-xs text-muted-foreground mt-2">
-                <span>(Default Admin: admin / admin123)</span>
-                <Button 
-                    type="button" 
-                    variant="link" 
-                    size="sm" 
-                    onClick={handleResetAdmin}
-                    disabled={resetting || loading}
-                    className="text-red-500 h-auto p-0"
-                >
-                    {resetting ? <Loader2 className="w-3 h-3 animate-spin mr-1"/> : <RefreshCw className="w-3 h-3 mr-1" />}
-                    Trouble logging in? Reset Admin
-                </Button>
-              </div>
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-6 text-lg" disabled={loading || resetting}>
+            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-6 text-lg" disabled={loading}>
               {loading ? <Loader2 className="w-6 h-6 animate-spin" /> : "Open My Gift 🎁"}
             </Button>
           </CardFooter>
