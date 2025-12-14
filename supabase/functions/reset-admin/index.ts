@@ -36,7 +36,11 @@ serve(async (req) => {
 
     console.log(`Attempting to reset admin: ${adminEmail}`);
 
-    // STRATEGY: TRY CREATE FIRST (Most common case for new apps)
+    // STRATEGY: 
+    // 1. Try Create
+    // 2. If Exists -> Try Update
+    // 3. If Update Fails -> Delete & Recreate (The Fix)
+
     const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email: adminEmail,
         password: adminPassword,
@@ -48,22 +52,21 @@ serve(async (req) => {
         console.log("Admin created successfully");
         userId = createData.user.id;
     } else {
-        // If create failed, assume user exists and try to find ID via our SQL helper
-        console.log(`Create failed (${createError?.message}), attempting update...`);
+        console.log(`Create failed (${createError?.message}), attempting recovery...`);
         
+        // Find existing ID
         const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('get_user_id_by_email', { 
             email: adminEmail 
         });
 
         if (rpcError || !rpcData) {
-            // If we can't find them, report the original create error
             throw new Error(`Could not create or find admin user. Create Error: ${createError?.message}. Lookup Error: ${rpcError?.message}`);
         }
 
         userId = rpcData;
         console.log(`Found existing admin ID: ${userId}`);
 
-        // Update the existing user's password
+        // Try standard update
         const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
             userId,
             { 
@@ -74,11 +77,34 @@ serve(async (req) => {
         );
 
         if (updateError) {
-            throw new Error(`Failed to update existing admin: ${updateError.message}`);
+            console.log(`Standard update failed (${updateError.message}). executing force re-creation...`);
+            
+            // NUCLEAR OPTION: Delete the corrupted user
+            const { error: deleteError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+            
+            if (deleteError) {
+                // If we can't delete, we are truly stuck, but let's try to proceed anyway or throw
+                throw new Error(`Critical: Could not delete corrupted user. ${deleteError.message}`);
+            }
+
+            // Create Fresh
+            const { data: recreateData, error: recreateError } = await supabaseAdmin.auth.admin.createUser({
+                email: adminEmail,
+                password: adminPassword,
+                email_confirm: true,
+                user_metadata: { username: 'admin', role: 'admin', avatar: '🎅' }
+            });
+
+            if (recreateError) {
+                throw new Error(`Force re-creation failed: ${recreateError.message}`);
+            }
+            
+            userId = recreateData.user.id;
+            console.log("Admin successfully force re-created with new ID");
         }
     }
 
-    // Ensure Profile Exists
+    // Ensure Profile Exists in Public Table
     if (userId) {
         const { error: profileError } = await supabaseAdmin
             .from('profiles')
