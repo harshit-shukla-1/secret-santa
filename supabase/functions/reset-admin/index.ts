@@ -16,7 +16,7 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
     if (!supabaseUrl || !supabaseServiceKey) {
-        throw new Error(`Missing Env Vars: URL=${!!supabaseUrl}, KEY=${!!supabaseServiceKey}`);
+        throw new Error("Missing Server Configuration");
     }
 
     const supabaseAdmin = createClient(
@@ -31,80 +31,54 @@ serve(async (req) => {
     )
 
     const adminEmail = 'admin@secretsanta.app';
-    
-    // Optimized: Get specific user instead of listing all
-    console.log(`Looking up user: ${adminEmail}`);
-    
-    // Note: getContextUser or similar doesn't exist on admin, we use listUsers with filter usually, 
-    // but generateLink or other methods might work. 
-    // Actually, deleteUser requires ID. 
-    // Let's try creating first. If it fails, we know they exist.
-    
+    const adminPassword = 'admin123';
     let userId;
 
-    // Try to create the user directly first
+    console.log(`Attempting to reset admin: ${adminEmail}`);
+
+    // STRATEGY: TRY CREATE FIRST (Most common case for new apps)
     const { data: createData, error: createError } = await supabaseAdmin.auth.admin.createUser({
         email: adminEmail,
-        password: 'admin123',
+        password: adminPassword,
         email_confirm: true,
         user_metadata: { username: 'admin', role: 'admin', avatar: '🎅' }
     });
 
     if (!createError && createData.user) {
-        console.log("User created successfully");
+        console.log("Admin created successfully");
         userId = createData.user.id;
-    } else if (createError?.message?.includes("already registered") || createError?.status === 422) {
-        console.log("User already exists, attempting to find ID...");
-        
-        // Since we can't create, we need to find the ID to update.
-        // listUsers is failing, so let's try a different approach:
-        // We can query the public 'profiles' table which SHOULD have the ID if our sync is working.
-        
-        const { data: profile } = await supabaseAdmin
-            .from('profiles')
-            .select('id')
-            .eq('username', 'admin') // Assuming username is unique/consistent
-            .single();
-
-        if (profile) {
-            userId = profile.id;
-            console.log(`Found ID from profiles: ${userId}`);
-        } else {
-            // Fallback: If not in profile, we HAVE to ask Auth.
-            // Let's try listUsers again but with a cleaner call, or maybe the previous error was transient.
-            // Alternatively, we can just delete the user by email if possible? No, delete requires ID.
-            
-            // Retrying listUsers but only expecting one page
-            const { data: { users }, error: listError } = await supabaseAdmin.auth.admin.listUsers({
-                page: 1,
-                perPage: 100 // Limit scope
-            });
-            
-            if (listError) throw new Error(`List Users Retry Error: ${listError.message}`);
-            
-            const foundUser = users.find(u => u.email === adminEmail);
-            if (!foundUser) throw new Error("User says registered but cannot be found in list or profiles.");
-            userId = foundUser.id;
-        }
-
-        if (userId) {
-            // Update existing user
-            const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
-                userId,
-                { 
-                    password: 'admin123',
-                    email_confirm: true,
-                    user_metadata: { username: 'admin', role: 'admin', avatar: '🎅' }
-                }
-            );
-            if (updateError) throw new Error(`Update User Error: ${updateError.message}`);
-        }
     } else {
-        // Genuine create error
-        throw new Error(`Create User Error: ${createError?.message}`);
+        // If create failed, assume user exists and try to find ID via our SQL helper
+        console.log(`Create failed (${createError?.message}), attempting update...`);
+        
+        const { data: rpcData, error: rpcError } = await supabaseAdmin.rpc('get_user_id_by_email', { 
+            email: adminEmail 
+        });
+
+        if (rpcError || !rpcData) {
+            // If we can't find them, report the original create error
+            throw new Error(`Could not create or find admin user. Create Error: ${createError?.message}. Lookup Error: ${rpcError?.message}`);
+        }
+
+        userId = rpcData;
+        console.log(`Found existing admin ID: ${userId}`);
+
+        // Update the existing user's password
+        const { error: updateError } = await supabaseAdmin.auth.admin.updateUserById(
+            userId,
+            { 
+                password: adminPassword,
+                email_confirm: true,
+                user_metadata: { username: 'admin', role: 'admin', avatar: '🎅' }
+            }
+        );
+
+        if (updateError) {
+            throw new Error(`Failed to update existing admin: ${updateError.message}`);
+        }
     }
 
-    // 2. Ensure profile exists and is correct
+    // Ensure Profile Exists
     if (userId) {
         const { error: profileError } = await supabaseAdmin
             .from('profiles')
@@ -116,11 +90,11 @@ serve(async (req) => {
             });
             
         if (profileError) {
-             console.log("Profile sync warning: " + profileError.message);
+            console.log("Profile sync warning:", profileError);
         }
     }
 
-    return new Response(JSON.stringify({ success: true, message: "Admin reset successfully" }), { 
+    return new Response(JSON.stringify({ success: true, message: "Admin reset to 'admin' / 'admin123'" }), { 
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       status: 200 
     })
