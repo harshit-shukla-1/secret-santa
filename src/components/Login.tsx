@@ -4,40 +4,44 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
-import { Ghost } from 'lucide-react';
-import { createUser } from '@/services/mockService';
+import { Gift } from 'lucide-react';
+import { authenticate, User } from '@/services/mockService';
 import { toast } from 'sonner';
 
 interface LoginProps {
-  onLogin: (username: string) => void;
+  onLogin: (user: User) => void;
 }
 
 const Login = ({ onLogin }: LoginProps) => {
   const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim()) {
-      toast.error("Please enter a username");
+    if (!username.trim() || !password.trim()) {
+      toast.error("Please enter both username and password");
       return;
     }
     
-    createUser(username.trim());
-    toast.success("Welcome to Secret Santa!");
-    onLogin(username.trim());
+    const user = authenticate(username.trim(), password.trim());
+    if (user) {
+      toast.success(`Welcome back, ${user.username}! 🎄`);
+      onLogin(user);
+    } else {
+      toast.error("Invalid credentials");
+    }
   };
 
   return (
-    <div className="flex items-center justify-center min-h-[80vh] px-4">
-      <Card className="w-full max-w-md">
+    <div className="flex items-center justify-center min-h-[80vh] px-4 relative z-10">
+      <Card className="w-full max-w-md bg-white/95 backdrop-blur shadow-xl border-primary/20">
         <CardHeader className="text-center">
-          <div className="mx-auto bg-primary/10 p-4 rounded-full w-fit mb-4">
-            <Ghost className="w-10 h-10 text-primary" />
+          <div className="mx-auto bg-red-100 p-4 rounded-full w-fit mb-4 animate-bounce">
+            <Gift className="w-10 h-10 text-primary" />
           </div>
-          <CardTitle className="text-2xl">Secret Santa</CardTitle>
+          <CardTitle className="text-2xl text-primary font-bold font-serif">Secret Santa Login</CardTitle>
           <CardDescription>
-            Enter a username to start sending anonymous messages.
-            No passwords, just fun!
+            Ho Ho Ho! Please sign in to access your dashboard.
           </CardDescription>
         </CardHeader>
         <form onSubmit={handleSubmit}>
@@ -45,17 +49,29 @@ const Login = ({ onLogin }: LoginProps) => {
             <div className="space-y-4">
               <div className="space-y-2">
                 <Input 
-                  placeholder="Choose a username..." 
+                  placeholder="Username" 
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  className="text-center text-lg"
+                  className="text-lg border-green-200 focus:border-primary"
                 />
+              </div>
+              <div className="space-y-2">
+                <Input 
+                  type="password"
+                  placeholder="Password" 
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="text-lg border-green-200 focus:border-primary"
+                />
+              </div>
+              <div className="text-xs text-center text-muted-foreground mt-2">
+                (Default Admin: admin / 123)
               </div>
             </div>
           </CardContent>
           <CardFooter>
-            <Button type="submit" className="w-full">
-              Enter App
+            <Button type="submit" className="w-full bg-primary hover:bg-primary/90 text-white font-bold py-6 text-lg">
+              Open My Gift 🎁
             </Button>
           </CardFooter>
         </form>
