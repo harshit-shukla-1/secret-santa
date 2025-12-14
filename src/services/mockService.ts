@@ -15,11 +15,11 @@ export interface User {
 
 export interface Message {
   id: string;
-  from_username: string; // Changed from 'from' to match DB
-  to_username: string;   // Changed from 'to' to match DB
+  from_username: string; 
+  to_username: string;   
   body: string;
   type: MessageType;
-  timestamp: number; // We'll convert created_at to timestamp for compatibility
+  timestamp: number; 
 }
 
 // Helpers
@@ -55,10 +55,6 @@ export const createUser = async (username: string, password?: string, role: User
 };
 
 export const deleteUser = async (username: string) => {
-  // NOTE: Deleting users via client is restricted. 
-  // For this demo, we might only delete the profile or need another edge function.
-  // We'll skip actual auth deletion for simplicity and just try to delete the profile if policies allow,
-  // or simple return true to not break UI flow (since we only have an add user edge function).
   console.log("Delete user not fully implemented for Supabase Auth without Admin API");
   return; 
 };
@@ -72,32 +68,50 @@ export const updateUserAvatar = async (username: string, avatar: string) => {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return;
   
-  // Only allow updating own avatar via policy
   const { error } = await supabase
     .from('profiles')
     .update({ avatar })
-    .eq('id', user.id); // Secure: rely on RLS, but passing ID helps
+    .eq('id', user.id); 
     
   if (error) console.error("Error updating avatar", error);
 };
 
 export const authenticate = async (username: string, password?: string): Promise<User | null> => {
+  const email = getEmail(username);
+  console.log(`Attempting login for: ${email}`);
+
   const { data, error } = await supabase.auth.signInWithPassword({
-    email: getEmail(username),
+    email,
     password: password || ''
   });
 
-  if (error || !data.user) {
-    console.error("Login failed", error);
+  if (error) {
+    console.error("Supabase Login Error:", error.message);
+    return null;
+  }
+
+  if (!data.user) {
+    console.error("Login successful but no user returned");
     return null;
   }
 
   // Fetch profile details
-  const { data: profile } = await supabase
+  const { data: profile, error: profileError } = await supabase
     .from('profiles')
     .select('*')
     .eq('id', data.user.id)
     .single();
+
+  if (profileError) {
+    console.error("Error fetching profile:", profileError);
+    // Fallback if profile missing but auth exists (shouldn't happen with our seed)
+    return {
+        id: data.user.id,
+        username: username,
+        role: 'user',
+        avatar: '☃️'
+    };
+  }
 
   return profile as User;
 };
