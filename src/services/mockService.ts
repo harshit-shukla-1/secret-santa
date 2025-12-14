@@ -5,16 +5,16 @@ export type MessageType = 'text' | 'image' | 'audio';
 
 export interface User {
   username: string;
-  password?: string; // Optional for legacy or future auth providers
+  password?: string;
   role: UserRole;
   avatar?: string;
 }
 
 export interface Message {
   id: string;
-  from: string; // Now tracking sender for history (though displayed anonymously)
+  from: string;
   to: string;
-  body: string; // Text content or Base64 data
+  body: string;
   type: MessageType;
   timestamp: number;
 }
@@ -22,14 +22,13 @@ export interface Message {
 const USERS_KEY = 'secret-santa-users-v2';
 const MESSAGES_KEY = 'secret-santa-messages-v2';
 
-// Initialize with default admin if empty
 const init = () => {
   if (typeof window === 'undefined') return;
   const users = localStorage.getItem(USERS_KEY);
   if (!users) {
     const admin: User = { 
       username: 'admin', 
-      password: '123', // Simple default password
+      password: '123',
       role: 'admin',
       avatar: '🎅'
     };
@@ -55,12 +54,17 @@ export const createUser = (username: string, password?: string, role: UserRole =
     username, 
     password, 
     role,
-    avatar: role === 'admin' ? '🎅' : '☃️' // Default avatars
+    avatar: role === 'admin' ? '🎅' : '☃️'
   };
   
   users.push(newUser);
   localStorage.setItem(USERS_KEY, JSON.stringify(users));
   return true;
+};
+
+export const deleteUser = (username: string) => {
+  const users = getUsers().filter(u => u.username !== username);
+  localStorage.setItem(USERS_KEY, JSON.stringify(users));
 };
 
 export const updateUserAvatar = (username: string, avatar: string) => {
@@ -75,7 +79,6 @@ export const updateUserAvatar = (username: string, avatar: string) => {
 export const authenticate = (username: string, password?: string): User | null => {
   const user = getUser(username);
   if (!user) return null;
-  // In a real app, hash passwords. Here we compare plain text for the mock.
   if (user.password === password) return user;
   return null;
 };
@@ -88,16 +91,22 @@ export const getMessagesForUser = (username: string): Message[] => {
     .sort((a, b) => b.timestamp - a.timestamp);
 };
 
-export const sendMessage = (to: string, body: string, type: MessageType = 'text') => {
+export const getSentMessages = (username: string): Message[] => {
+  const messages = localStorage.getItem(MESSAGES_KEY);
+  const allMessages: Message[] = messages ? JSON.parse(messages) : [];
+  return allMessages
+    .filter(m => m.from === username)
+    .sort((a, b) => b.timestamp - a.timestamp);
+};
+
+export const sendMessage = (from: string, to: string, body: string, type: MessageType = 'text') => {
   const messages = localStorage.getItem(MESSAGES_KEY);
   const allMessages: Message[] = messages ? JSON.parse(messages) : [];
   
-  // LocalStorage has size limits (usually 5MB). Large images/audio might fail.
-  // In a real app, upload to a server/bucket and store URL.
   try {
     const newMessage: Message = {
       id: Date.now().toString(),
-      from: 'anonymous',
+      from, // Now we store who sent it so they can delete it
       to,
       body,
       type,
@@ -112,10 +121,18 @@ export const sendMessage = (to: string, body: string, type: MessageType = 'text'
   }
 };
 
+export const deleteMessage = (id: string) => {
+  const messages = localStorage.getItem(MESSAGES_KEY);
+  if (messages) {
+    const allMessages: Message[] = JSON.parse(messages);
+    const filtered = allMessages.filter(m => m.id !== id);
+    localStorage.setItem(MESSAGES_KEY, JSON.stringify(filtered));
+  }
+};
+
 export const clearAllData = () => {
   localStorage.removeItem(USERS_KEY);
   localStorage.removeItem(MESSAGES_KEY);
 };
 
-// Initial run
 init();

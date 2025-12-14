@@ -5,9 +5,9 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { createUser, getUsers, User } from '@/services/mockService';
+import { createUser, deleteUser, getUsers, User } from '@/services/mockService';
 import { toast } from 'sonner';
-import { UserPlus, Shield } from 'lucide-react';
+import { UserPlus, Shield, Trash2 } from 'lucide-react';
 
 const AdminDashboard = () => {
   const [newUser, setNewUser] = useState('');
@@ -26,9 +26,17 @@ const AdminDashboard = () => {
       toast.success(`Elf ${newUser} recruited!`);
       setNewUser('');
       setNewPass('');
-      setUsers(getUsers()); // Refresh list
+      setUsers(getUsers());
     } else {
       toast.error("User already exists!");
+    }
+  };
+
+  const handleDeleteUser = (username: string) => {
+    if (confirm(`Are you sure you want to remove ${username} from the Nice List?`)) {
+      deleteUser(username);
+      setUsers(getUsers());
+      toast.success("User deleted");
     }
   };
 
@@ -66,6 +74,7 @@ const AdminDashboard = () => {
                   <TableHead>Avatar</TableHead>
                   <TableHead>Username</TableHead>
                   <TableHead>Role</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -77,6 +86,18 @@ const AdminDashboard = () => {
                       <span className={`px-2 py-1 rounded-full text-xs ${user.role === 'admin' ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'}`}>
                         {user.role}
                       </span>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      {user.username !== 'admin' && (
+                        <Button 
+                          variant="ghost" 
+                          size="icon" 
+                          className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                          onClick={() => handleDeleteUser(user.username)}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))}
