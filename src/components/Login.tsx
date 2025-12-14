@@ -75,7 +75,7 @@ const Login = ({ onLogin }: LoginProps) => {
                 />
               </div>
               <div className="text-xs text-center text-muted-foreground mt-2">
-                (Default Admin: admin / 123)
+                (Default Admin: admin / admin123)
               </div>
             </div>
           </CardContent>
