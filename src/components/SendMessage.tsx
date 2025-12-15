@@ -3,22 +3,26 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from '@/components/ui/card';
 import { getUsers, sendMessage, getSentMessages, deleteMessage, User, Message } from '@/services/mockService';
 import { toast } from 'sonner';
-import { Send, Trash2, History, Loader2, ArrowLeft } from 'lucide-react';
+import { Send, Trash2, History, Loader2, ArrowLeft, Check, ChevronsUpDown, X } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface SendMessageProps {
   currentUser: User;
 }
 
 const SendMessage = ({ currentUser }: SendMessageProps) => {
-  const [selectedUser, setSelectedUser] = useState('');
+  const [selectedUsers, setSelectedUsers] = useState<string[]>([]);
   const [textMessage, setTextMessage] = useState('');
   const [sending, setSending] = useState(false);
   const [usersList, setUsersList] = useState<User[]>([]);
+  const [open, setOpen] = useState(false);
   
   // Sent history state
   const [sentMessages, setSentMessages] = useState<Message[]>([]);
@@ -43,9 +47,17 @@ const SendMessage = ({ currentUser }: SendMessageProps) => {
     setSentMessages(msgs);
   };
 
+  const toggleUser = (username: string) => {
+    setSelectedUsers(current => 
+        current.includes(username) 
+            ? current.filter(u => u !== username)
+            : [...current, username]
+    );
+  };
+
   const handleSend = async () => {
-    if (!selectedUser) {
-      toast.error("Please select a recipient (Who has been naughty or nice?)");
+    if (selectedUsers.length === 0) {
+      toast.error("Please select at least one recipient (Who has been naughty or nice?)");
       return;
     }
 
@@ -56,12 +68,20 @@ const SendMessage = ({ currentUser }: SendMessageProps) => {
 
     setSending(true);
     try {
-        const success = await sendMessage(currentUser.username, selectedUser, textMessage, 'text');
+        // Send to all selected users
+        const promises = selectedUsers.map(username => 
+            sendMessage(currentUser.username, username, textMessage, 'text')
+        );
 
-        if (success) {
-            toast.success(`Secret gift sent to ${selectedUser}! 🎁`);
+        const results = await Promise.all(promises);
+        const successCount = results.filter(r => r).length;
+
+        if (successCount > 0) {
+            toast.success(`Secret gift sent to ${successCount} elves! 🎁`);
             refreshSentMessages();
             setTextMessage('');
+            setSelectedUsers([]);
+            setOpen(false);
         } else {
             toast.error("Failed to send.");
         }
@@ -115,21 +135,67 @@ const SendMessage = ({ currentUser }: SendMessageProps) => {
           <CardContent className="space-y-4">
             <div className="space-y-2">
               <label className="text-sm font-medium">To:</label>
-              <Select value={selectedUser} onValueChange={setSelectedUser}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a colleague..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {usersList.map(user => (
-                    <SelectItem key={user.username} value={user.username}>
-                      <span className="flex items-center gap-2">
-                        <span>{user.avatar}</span>
-                        {user.username}
-                      </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              
+              <Popover open={open} onOpenChange={setOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={open}
+                    className="w-full justify-between min-h-[44px] h-auto"
+                  >
+                    {selectedUsers.length > 0 ? (
+                        <div className="flex flex-wrap gap-1">
+                            {selectedUsers.map(u => (
+                                <Badge key={u} variant="secondary" className="mr-1 mb-1">
+                                    {u}
+                                    <div 
+                                        className="ml-1 ring-offset-background rounded-full outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 cursor-pointer"
+                                        onMouseDown={(e) => {
+                                            e.preventDefault();
+                                            e.stopPropagation();
+                                            toggleUser(u);
+                                        }}
+                                    >
+                                        <X className="h-3 w-3 text-muted-foreground hover:text-foreground" />
+                                    </div>
+                                </Badge>
+                            ))}
+                        </div>
+                    ) : (
+                        <span className="text-muted-foreground">Select recipients...</span>
+                    )}
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[var(--radix-popover-trigger-width)] p-0">
+                  <Command>
+                    <CommandInput placeholder="Search elves..." />
+                    <CommandList>
+                        <CommandEmpty>No elf found.</CommandEmpty>
+                        <CommandGroup>
+                        {usersList.map((user) => (
+                            <CommandItem
+                            key={user.username}
+                            value={user.username}
+                            onSelect={() => {
+                                toggleUser(user.username);
+                            }}
+                            >
+                            <Check
+                                className={cn(
+                                "mr-2 h-4 w-4",
+                                selectedUsers.includes(user.username) ? "opacity-100" : "opacity-0"
+                                )}
+                            />
+                            {user.avatar} {user.username}
+                            </CommandItem>
+                        ))}
+                        </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             </div>
 
             <div className="mt-4">
