@@ -223,3 +223,45 @@ export const deleteMessage = async (id: string) => {
   if (error) console.error("Delete message error", error);
   return !error;
 };
+
+// --- New Features ---
+
+export const getPublicWallStatus = async (): Promise<boolean> => {
+  const { data, error } = await supabase
+    .from('app_config')
+    .select('value')
+    .eq('key', 'public_wall_enabled')
+    .single();
+    
+  if (error || !data) return true; // Default to true if not found
+  return data.value === 'true';
+};
+
+export const setPublicWallStatus = async (enabled: boolean): Promise<boolean> => {
+  const { error } = await supabase
+    .from('app_config')
+    .upsert({ key: 'public_wall_enabled', value: String(enabled) });
+    
+  return !error;
+};
+
+export const uploadFile = async (file: File): Promise<string | null> => {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `${crypto.randomUUID()}.${fileExt}`;
+  const filePath = `${fileName}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('attachments')
+    .upload(filePath, file);
+
+  if (uploadError) {
+    console.error("Upload error:", uploadError);
+    return null;
+  }
+
+  const { data } = supabase.storage
+    .from('attachments')
+    .getPublicUrl(filePath);
+
+  return data.publicUrl;
+};

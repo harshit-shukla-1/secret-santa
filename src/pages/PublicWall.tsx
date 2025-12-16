@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Message, getAllMessages, getSessionUser, deleteMessage, User } from '@/services/mockService';
-import { Music, ArrowLeft, Gift, Trash2 } from 'lucide-react';
+import { Message, getAllMessages, getSessionUser, deleteMessage, User, getPublicWallStatus } from '@/services/mockService';
+import { Music, ArrowLeft, Gift, Trash2, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -9,6 +9,8 @@ import { toast } from 'sonner';
 const PublicWall = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [accessDenied, setAccessDenied] = useState(false);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
 
   const fetchMessages = async () => {
@@ -20,13 +22,30 @@ const PublicWall = () => {
     const init = async () => {
         const user = await getSessionUser();
         setCurrentUser(user);
-        await fetchMessages();
+        
+        const isWallEnabled = await getPublicWallStatus();
+        
+        // If wall is disabled and user is not admin, deny access
+        if (!isWallEnabled && user?.role !== 'admin') {
+            setAccessDenied(true);
+        } else {
+            await fetchMessages();
+        }
+        setLoading(false);
     };
     init();
 
-    const interval = setInterval(fetchMessages, 5000);
+    const interval = setInterval(async () => {
+        const isWallEnabled = await getPublicWallStatus();
+        // Dynamic check if status changes while on page
+        if (!isWallEnabled && currentUser?.role !== 'admin') {
+            setAccessDenied(true);
+        } else if (!accessDenied) {
+            fetchMessages();
+        }
+    }, 5000);
     return () => clearInterval(interval);
-  }, []);
+  }, [accessDenied, currentUser]);
 
   const handleDelete = async (id: string) => {
     if (confirm("Are you sure you want to remove this message from the wall?")) {
@@ -62,6 +81,27 @@ const PublicWall = () => {
     <div key={i} className="snowflake">❅</div>
   ));
 
+  if (loading) return null;
+
+  if (accessDenied) {
+      return (
+        <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4 text-center">
+            <div className="bg-white p-8 rounded-xl shadow-lg border border-red-100 max-w-md w-full">
+                <div className="mx-auto bg-red-100 w-16 h-16 rounded-full flex items-center justify-center mb-4">
+                    <Lock className="w-8 h-8 text-red-600" />
+                </div>
+                <h1 className="text-2xl font-bold text-gray-800 mb-2">The Wall is Closed</h1>
+                <p className="text-muted-foreground mb-6">
+                    Santa's elves are currently polishing the display case. The public wall is temporarily hidden by the admin.
+                </p>
+                <Button onClick={() => navigate('/')} className="w-full">
+                    <ArrowLeft className="w-4 h-4 mr-2" /> Return Home
+                </Button>
+            </div>
+        </div>
+      );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 relative pb-10">
       <div className="h-48 bg-gradient-to-r from-red-700 to-red-900 relative overflow-hidden mb-8 shadow-md">
@@ -79,6 +119,11 @@ const PublicWall = () => {
                <Gift className="w-8 h-8" />
             </h1>
             <p className="opacity-90">Witness the spirit of giving!</p>
+            {!accessDenied && currentUser?.role === 'admin' && (
+                 <div className="mt-2 text-xs bg-white/20 inline-block px-2 py-1 rounded">
+                    Admin View: Visible because you are admin
+                 </div>
+            )}
           </div>
       </div>
 

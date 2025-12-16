@@ -5,23 +5,32 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { createUser, getUsers, deleteUser, User } from '@/services/mockService';
+import { createUser, getUsers, deleteUser, User, getPublicWallStatus, setPublicWallStatus } from '@/services/mockService';
 import { toast } from 'sonner';
-import { UserPlus, Shield, Loader2, Trash2 } from 'lucide-react';
+import { UserPlus, Shield, Loader2, Trash2, Globe, Lock, Unlock } from 'lucide-react';
+import { Switch } from '@/components/ui/switch';
+import { Label } from '@/components/ui/label';
 
 const AdminDashboard = () => {
   const [newUser, setNewUser] = useState('');
   const [newPass, setNewPass] = useState('');
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
+  const [publicWallEnabled, setPublicWallEnabled] = useState(true);
 
   const refreshUsers = async () => {
     const u = await getUsers();
     setUsers(u);
   };
 
+  const refreshConfig = async () => {
+    const status = await getPublicWallStatus();
+    setPublicWallEnabled(status);
+  };
+
   useEffect(() => {
     refreshUsers();
+    refreshConfig();
   }, []);
 
   const handleCreateUser = async (e: React.FormEvent) => {
@@ -65,8 +74,47 @@ const AdminDashboard = () => {
     }
   };
 
+  const handleToggleWall = async (checked: boolean) => {
+    setPublicWallEnabled(checked);
+    const success = await setPublicWallStatus(checked);
+    if (success) {
+        toast.success(checked ? "Public Wall is now OPEN!" : "Public Wall is now CLOSED.");
+    } else {
+        toast.error("Failed to update setting");
+        setPublicWallEnabled(!checked); // revert
+    }
+  };
+
   return (
     <div className="grid gap-6">
+      {/* Global Settings */}
+      <Card className="border-primary/20 bg-primary/5">
+        <CardHeader className="pb-2">
+            <CardTitle className="text-lg flex items-center gap-2">
+                <Globe className="w-5 h-5" />
+                Global Settings
+            </CardTitle>
+        </CardHeader>
+        <CardContent className="flex items-center justify-between">
+            <div className="space-y-0.5">
+                <Label htmlFor="wall-mode" className="text-base font-bold text-gray-800">
+                    Public Wall Access
+                </Label>
+                <p className="text-sm text-muted-foreground">
+                    {publicWallEnabled ? "The wall is currently visible to everyone." : "The wall is hidden from non-admin users."}
+                </p>
+            </div>
+            <div className="flex items-center gap-2">
+                {publicWallEnabled ? <Unlock className="w-4 h-4 text-green-600" /> : <Lock className="w-4 h-4 text-red-600" />}
+                <Switch 
+                    id="wall-mode" 
+                    checked={publicWallEnabled}
+                    onCheckedChange={handleToggleWall}
+                />
+            </div>
+        </CardContent>
+      </Card>
+
       <Card className="border-primary/20">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-primary">
