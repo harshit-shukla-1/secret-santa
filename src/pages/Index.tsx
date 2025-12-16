@@ -8,12 +8,13 @@ import UpdatePasswordDialog from '@/components/UpdatePasswordDialog';
 import { Button } from '@/components/ui/button';
 import { LogOut, Globe, Loader2 } from 'lucide-react';
 import { Toaster } from 'sonner';
-import { User, getSessionUser, logoutUser } from '@/services/mockService';
+import { User, getSessionUser, logoutUser, getPublicWallStatus } from '@/services/mockService';
 import { useNavigate } from 'react-router-dom';
 
 const Index = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [wallEnabled, setWallEnabled] = useState(true);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -22,6 +23,10 @@ const Index = () => {
       if (user) {
         setCurrentUser(user);
       }
+      // Check wall status
+      const enabled = await getPublicWallStatus();
+      setWallEnabled(enabled);
+      
       setLoading(false);
     };
     checkSession();
@@ -29,6 +34,8 @@ const Index = () => {
 
   const handleLogin = (user: User) => {
     setCurrentUser(user);
+    // Refresh wall status on login
+    getPublicWallStatus().then(setWallEnabled);
   };
 
   const handleLogout = async () => {
@@ -68,6 +75,8 @@ const Index = () => {
     );
   }
 
+  const showWallButton = wallEnabled || currentUser.role === 'admin';
+
   return (
     <div className="min-h-screen bg-slate-50 relative">
        {/* Simple festive background header */}
@@ -77,14 +86,16 @@ const Index = () => {
           <div className="container mx-auto pt-10 px-4 text-white">
             <h1 className="text-4xl font-bold font-serif mb-2 text-shadow">🎄 Secret Santa HQ</h1>
             <p className="opacity-90">Spread joy anonymously!</p>
-            <div className="mt-4">
-                 <Button 
-                    onClick={() => navigate('/wall')} 
-                    className="bg-white/20 hover:bg-white/30 text-white border border-white/40 backdrop-blur-sm"
-                 >
-                    <Globe className="w-4 h-4 mr-2" />
-                    View Public Wall
-                 </Button>
+            <div className="mt-4 h-10">
+                 {showWallButton && (
+                   <Button 
+                      onClick={() => navigate('/wall')} 
+                      className="bg-white/20 hover:bg-white/30 text-white border border-white/40 backdrop-blur-sm animate-in fade-in zoom-in duration-300"
+                   >
+                      <Globe className="w-4 h-4 mr-2" />
+                      View Public Wall
+                   </Button>
+                 )}
             </div>
           </div>
        </div>
