@@ -1,10 +1,140 @@
 import React, { useEffect, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Message, getAllMessages, getSessionUser, deleteMessage, User, getPublicWallStatus } from '@/services/mockService';
-import { Music, ArrowLeft, Gift, Trash2, Lock } from 'lucide-react';
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card';
+import { 
+  Message, getAllMessages, getSessionUser, deleteMessage, 
+  User, getPublicWallStatus, Comment, getComments, addComment, deleteComment 
+} from '@/services/mockService';
+import { Music, ArrowLeft, Gift, Trash2, Lock, MessageCircle, Send, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+
+const CommentDialog = ({ message, currentUser }: { message: Message, currentUser: User | null }) => {
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [newComment, setNewComment] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
+
+  const loadComments = async () => {
+    if (!isOpen) return;
+    const data = await getComments(message.id);
+    setComments(data);
+  };
+
+  useEffect(() => {
+    loadComments();
+  }, [isOpen]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newComment.trim() || !currentUser) return;
+
+    setLoading(true);
+    const success = await addComment(message.id, currentUser.username, currentUser.avatar || '👤', newComment.trim());
+    setLoading(false);
+
+    if (success) {
+      setNewComment('');
+      loadComments();
+      toast.success("Comment added!");
+    } else {
+      toast.error("Failed to add comment");
+    }
+  };
+
+  const handleDelete = async (commentId: string) => {
+    if (confirm("Delete this comment?")) {
+        await deleteComment(commentId);
+        loadComments();
+    }
+  };
+
+  return (
+    <Dialog open={isOpen} onOpenChange={setIsOpen}>
+      <DialogTrigger asChild>
+        <Button variant="ghost" size="sm" className="text-muted-foreground hover:text-primary">
+          <MessageCircle className="w-4 h-4 mr-2" />
+          Comments
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2">
+            Comments on Gift to {message.to_username}
+          </DialogTitle>
+        </DialogHeader>
+        
+        <div className="flex flex-col h-[400px]">
+          <ScrollArea className="flex-1 pr-4 -mr-4">
+            {comments.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-40 text-muted-foreground opacity-50">
+                <MessageCircle className="w-10 h-10 mb-2" />
+                <p>No comments yet. Be the first!</p>
+              </div>
+            ) : (
+              <div className="space-y-4 py-4">
+                {comments.map((comment) => (
+                  <div key={comment.id} className="flex gap-3 text-sm group">
+                    <div className="flex-shrink-0 text-2xl bg-slate-100 rounded-full w-10 h-10 flex items-center justify-center">
+                        {comment.avatar}
+                    </div>
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center justify-between">
+                         <span className="font-bold text-gray-900">{comment.username}</span>
+                         <span className="text-xs text-muted-foreground">{new Date(comment.created_at).toLocaleDateString()}</span>
+                      </div>
+                      <p className="text-gray-700 leading-relaxed bg-slate-50 p-2 rounded-lg rounded-tl-none">
+                        {comment.body}
+                      </p>
+                      
+                      {(currentUser?.role === 'admin' || currentUser?.username === comment.username) && (
+                          <button 
+                            onClick={() => handleDelete(comment.id)}
+                            className="text-xs text-red-400 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-opacity"
+                          >
+                            Delete
+                          </button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+
+          <div className="pt-4 mt-auto border-t">
+            {currentUser ? (
+                <form onSubmit={handleSubmit} className="flex gap-2">
+                <Input
+                    placeholder="Spread some joy..."
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    disabled={loading}
+                    className="flex-1"
+                />
+                <Button type="submit" size="icon" disabled={loading || !newComment.trim()}>
+                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                </Button>
+                </form>
+            ) : (
+                <p className="text-center text-sm text-muted-foreground">Log in to comment</p>
+            )}
+          </div>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+};
 
 const PublicWall = () => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -41,7 +171,7 @@ const PublicWall = () => {
         if (!isWallEnabled && currentUser?.role !== 'admin') {
             setAccessDenied(true);
         } else if (!accessDenied) {
-            fetchMessages();
+            // Optional: Auto-refresh content could go here, but might disturb active comments
         }
     }, 5000);
     return () => clearInterval(interval);
@@ -135,7 +265,7 @@ const PublicWall = () => {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
              {messages.map((msg) => (
-               <Card key={msg.id} className="hover:shadow-lg transition-shadow border-primary/10 overflow-hidden relative group">
+               <Card key={msg.id} className="hover:shadow-lg transition-shadow border-primary/10 overflow-hidden relative group flex flex-col">
                  {currentUser?.role === 'admin' && (
                     <div className="absolute top-2 right-2 z-10 opacity-0 group-hover:opacity-100 transition-opacity">
                       <Button variant="destructive" size="icon" className="h-8 w-8" onClick={() => handleDelete(msg.id)}>
@@ -155,12 +285,15 @@ const PublicWall = () => {
                         <span className="text-xs text-muted-foreground">{new Date(msg.timestamp).toLocaleDateString()}</span>
                     </div>
                  </CardHeader>
-                 <CardContent className="pt-4 bg-white">
+                 <CardContent className="pt-4 bg-white flex-1">
                     {renderMessageContent(msg)}
                     <div className="mt-4 text-right">
                         <span className="text-xs text-muted-foreground font-mono">- Secret Santa</span>
                     </div>
                  </CardContent>
+                 <CardFooter className="bg-slate-50/50 p-2 border-t flex justify-end">
+                    <CommentDialog message={msg} currentUser={currentUser} />
+                 </CardFooter>
                </Card>
              ))}
           </div>

@@ -21,6 +21,15 @@ export interface Message {
   timestamp: number; 
 }
 
+export interface Comment {
+  id: string;
+  message_id: string;
+  username: string;
+  avatar: string;
+  body: string;
+  created_at: string;
+}
+
 const getEmail = (username: string) => `${username}@secretsantahq.com`;
 
 export const getUsers = async (): Promise<User[]> => {
@@ -224,7 +233,7 @@ export const deleteMessage = async (id: string) => {
   return !error;
 };
 
-// --- New Features ---
+// --- Config & Storage ---
 
 export const getPublicWallStatus = async (): Promise<boolean> => {
   const { data, error } = await supabase
@@ -264,4 +273,46 @@ export const uploadFile = async (file: File): Promise<string | null> => {
     .getPublicUrl(filePath);
 
   return data.publicUrl;
+};
+
+// --- Comments ---
+
+export const getComments = async (messageId: string): Promise<Comment[]> => {
+  const { data, error } = await supabase
+    .from('comments')
+    .select('*')
+    .eq('message_id', messageId)
+    .order('created_at', { ascending: true });
+
+  if (error) {
+    console.error("Error fetching comments", error);
+    return [];
+  }
+  return data as Comment[];
+};
+
+export const addComment = async (messageId: string, username: string, avatar: string, body: string): Promise<boolean> => {
+  const { error } = await supabase
+    .from('comments')
+    .insert({
+      message_id: messageId,
+      username,
+      avatar,
+      body
+    });
+
+  if (error) {
+    console.error("Error adding comment", error);
+    return false;
+  }
+  return true;
+};
+
+export const deleteComment = async (commentId: string): Promise<boolean> => {
+    const { error } = await supabase
+        .from('comments')
+        .delete()
+        .eq('id', commentId);
+        
+    return !error;
 };
