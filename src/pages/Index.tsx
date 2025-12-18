@@ -6,7 +6,7 @@ import AdminDashboard from '@/components/AdminDashboard';
 import AvatarSelector from '@/components/AvatarSelector';
 import UpdatePasswordDialog from '@/components/UpdatePasswordDialog';
 import { Button } from '@/components/ui/button';
-import { LogOut, Globe, Loader2 } from 'lucide-react';
+import { LogOut, Globe, Loader2, Trophy, HelpCircle } from 'lucide-react';
 import { Toaster } from 'sonner';
 import { User, getSessionUser, logoutUser, getPublicWallStatus } from '@/services/mockService';
 import { useNavigate } from 'react-router-dom';
@@ -86,16 +86,30 @@ const Index = () => {
           <div className="container mx-auto pt-10 px-4 text-white">
             <h1 className="text-4xl font-bold font-serif mb-2 text-shadow">🎄 Secret Santa HQ</h1>
             <p className="opacity-90">Spread joy anonymously!</p>
-            <div className="mt-4 h-10">
+            <div className="mt-6 flex flex-wrap gap-3">
                  {showWallButton && (
                    <Button 
                       onClick={() => navigate('/wall')} 
-                      className="bg-white/20 hover:bg-white/30 text-white border border-white/40 backdrop-blur-sm animate-in fade-in zoom-in duration-300"
+                      className="bg-white/20 hover:bg-white/30 text-white border border-white/40 backdrop-blur-sm"
                    >
                       <Globe className="w-4 h-4 mr-2" />
-                      View Public Wall
+                      Public Wall
                    </Button>
                  )}
+                 <Button 
+                    onClick={() => navigate('/game')} 
+                    className="bg-red-500/80 hover:bg-red-500 text-white border border-red-400 backdrop-blur-sm shadow-lg"
+                 >
+                    <HelpCircle className="w-4 h-4 mr-2" />
+                    Play Guessing Game
+                 </Button>
+                 <Button 
+                    onClick={() => navigate('/leaderboard')} 
+                    className="bg-yellow-500/80 hover:bg-yellow-500 text-white border border-yellow-400 backdrop-blur-sm shadow-lg"
+                 >
+                    <Trophy className="w-4 h-4 mr-2" />
+                    Leaderboard
+                 </Button>
             </div>
           </div>
        </div>

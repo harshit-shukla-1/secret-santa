@@ -30,6 +30,21 @@ export interface Comment {
   created_at: string;
 }
 
+export interface Guess {
+  id: string;
+  message_id: string;
+  guesser_username: string;
+  guessed_username: string;
+  is_correct: boolean;
+  created_at: string;
+}
+
+export interface LeaderboardEntry {
+  username: string;
+  score: number;
+  avatar?: string;
+}
+
 const getEmail = (username: string) => `${username}@secretsantahq.com`;
 
 export const getUsers = async (): Promise<User[]> => {
@@ -315,4 +330,85 @@ export const deleteComment = async (commentId: string): Promise<boolean> => {
         .eq('id', commentId);
         
     return !error;
+};
+
+// --- Guessing Game ---
+
+export const submitGuess = async (messageId: string, guesserUsername: string, guessedUsername: string): Promise<'correct' | 'incorrect' | 'limit_reached' | 'error'> => {
+    // 1. Check existing guesses count
+    const { count, error: countError } = await supabase
+        .from('guesses')
+        .select('*', { count: 'exact', head: true })
+        .eq('message_id', messageId)
+        .eq('guesser_username', guesserUsername);
+        
+    if (countError) return 'error';
+    if (count !== null && count >= 2) return 'limit_reached';
+
+    // 2. Check if guess is correct (Using RPC for security or just simple query if confident in RLS)
+    // Using RPC to prevent needing to fetch "from_username" to client
+    const { data: isCorrect, error: checkError } = await supabase.rpc('check_guess', { 
+        msg_id: messageId, 
+        guess_username: guessedUsername 
+    });
+
+    if (checkError) {
+        console.error("Check guess error", checkError);
+        return 'error';
+    }
+
+    // 3. Record guess
+    const { error: insertError } = await supabase
+        .from('guesses')
+        .insert({
+            message_id: messageId,
+            guesser_username: guesserUsername,
+            guessed_username: guessedUsername,
+            is_correct: isCorrect
+        });
+
+    if (insertError) {
+        console.error("Insert guess error", insertError);
+        return 'error';
+    }
+
+    return isCorrect ? 'correct' : 'incorrect';
+};
+
+export const getUserGuesses = async (guesserUsername: string): Promise<Guess[]> => {
+    const { data } = await supabase
+        .from('guesses')
+        .select('*')
+        .eq('guesser_username', guesserUsername);
+    return (data as Guess[]) || [];
+};
+
+export const getLeaderboard = async (): Promise<LeaderboardEntry[]> => {
+    // Fetch all correct guesses
+    const { data: guesses } = await supabase
+        .from('guesses')
+        .select('guesser_username')
+        .eq('is_correct', true);
+
+    if (!guesses) return [];
+
+    // Aggregate scores
+    const scores: Record<string, number> = {};
+    guesses.forEach((g: any) => {
+        scores[g.guesser_username] = (scores[g.guesser_username] || 0) + 1;
+    });
+
+    // Fetch user avatars
+    const { data: profiles } = await supabase.from('profiles').select('username, avatar');
+    const avatarMap: Record<string, string> = {};
+    profiles?.forEach((p: any) => { avatarMap[p.username] = p.avatar || '👤'; });
+
+    // Format
+    const leaderboard = Object.entries(scores).map(([username, score]) => ({
+        username,
+        score,
+        avatar: avatarMap[username]
+    }));
+
+    return leaderboard.sort((a, b) => b.score - a.score);
 };
