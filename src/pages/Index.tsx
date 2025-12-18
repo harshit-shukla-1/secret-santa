@@ -80,17 +80,17 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-slate-50 relative">
        {/* Simple festive background header */}
-       <div className="h-64 bg-gradient-to-r from-green-700 to-green-900 relative overflow-hidden">
+       <div className="min-h-[22rem] sm:min-h-[18rem] md:h-64 bg-gradient-to-r from-green-700 to-green-900 relative overflow-hidden transition-all">
           {snowflakes}
           <div className="absolute bottom-0 left-0 right-0 h-16 bg-gradient-to-t from-slate-50 to-transparent"></div>
-          <div className="container mx-auto pt-10 px-4 text-white">
+          <div className="container mx-auto pt-8 px-4 text-white pb-24 md:pb-0">
             <h1 className="text-4xl font-bold font-serif mb-2 text-shadow">🎄 Secret Santa HQ</h1>
             <p className="opacity-90">Spread joy anonymously!</p>
-            <div className="mt-6 flex flex-wrap gap-3">
+            <div className="mt-6 flex flex-col sm:flex-row flex-wrap gap-3 items-start sm:items-center">
                  {showWallButton && (
                    <Button 
                       onClick={() => navigate('/wall')} 
-                      className="bg-white/20 hover:bg-white/30 text-white border border-white/40 backdrop-blur-sm"
+                      className="w-full sm:w-auto bg-white/20 hover:bg-white/30 text-white border border-white/40 backdrop-blur-sm justify-start sm:justify-center"
                    >
                       <Globe className="w-4 h-4 mr-2" />
                       Public Wall
@@ -98,14 +98,14 @@ const Index = () => {
                  )}
                  <Button 
                     onClick={() => navigate('/game')} 
-                    className="bg-red-500/80 hover:bg-red-500 text-white border border-red-400 backdrop-blur-sm shadow-lg"
+                    className="w-full sm:w-auto bg-red-500/80 hover:bg-red-500 text-white border border-red-400 backdrop-blur-sm shadow-lg justify-start sm:justify-center"
                  >
                     <HelpCircle className="w-4 h-4 mr-2" />
                     Play Guessing Game
                  </Button>
                  <Button 
                     onClick={() => navigate('/leaderboard')} 
-                    className="bg-yellow-500/80 hover:bg-yellow-500 text-white border border-yellow-400 backdrop-blur-sm shadow-lg"
+                    className="w-full sm:w-auto bg-yellow-500/80 hover:bg-yellow-500 text-white border border-yellow-400 backdrop-blur-sm shadow-lg justify-start sm:justify-center"
                  >
                     <Trophy className="w-4 h-4 mr-2" />
                     Leaderboard
@@ -114,7 +114,7 @@ const Index = () => {
           </div>
        </div>
 
-      <div className="max-w-6xl mx-auto px-4 -mt-20 relative z-10 pb-10">
+      <div className="max-w-6xl mx-auto px-4 -mt-16 md:-mt-20 relative z-10 pb-10">
         
         {/* User Header Card */}
         <div className="bg-white rounded-xl shadow-lg p-6 mb-8 flex flex-col md:flex-row items-center justify-between gap-4 border-t-4 border-primary">
